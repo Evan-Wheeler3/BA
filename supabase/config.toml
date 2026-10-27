@@ -1,0 +1,12 @@
+# Minimal Supabase CLI config for the BA Exam Coach functions.
+project_id = "ba-exam-coach"
+
+[functions.send-reminders]
+# Called by pg_cron with a shared secret header, not a user JWT.
+verify_jwt = false
+
+[functions.push-test]
+verify_jwt = true
+
+[functions.grade-recall]
+verify_jwt = true
