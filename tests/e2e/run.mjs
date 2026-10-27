@@ -59,7 +59,8 @@ async function answerCurrentQuestion(page) {
 }
 
 await waitForServer()
-const browser = await chromium.launch()
+// Full Chromium in new headless mode (the headless shell can't grant notification permission).
+const browser = await chromium.launch({ channel: 'chromium' })
 const iphone = devices['iPhone 13']
 const context = await browser.newContext({ ...iphone, acceptDownloads: true })
 const page = await context.newPage()
@@ -223,6 +224,35 @@ try {
     await page.getByText('Offline — lessons').waitFor()
     await page.screenshot({ path: `${OUT}17-offline.png`, fullPage: true })
     await context.setOffline(false)
+  })
+
+  await check('service worker shows a reminder notification for a push message', async () => {
+    await context.grantPermissions(['notifications'], { origin: BASE })
+    const cdp = await context.newCDPSession(page)
+    const registrationId = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('no SW registration seen')), 10000)
+      cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => {
+        const reg = e.registrations.find((r) => r.scopeURL.startsWith(BASE) && !r.isDeleted)
+        if (reg) {
+          clearTimeout(timer)
+          resolve(reg.registrationId)
+        }
+      })
+    })
+    await cdp.send('ServiceWorker.enable')
+    await cdp.send('ServiceWorker.deliverPushMessage', {
+      origin: BASE,
+      registrationId: await registrationId,
+      data: JSON.stringify({ title: 'Tonight: Planning UAT', body: '60 minutes: 10 recall · 25 learn · 25 practice.', url: '/session', tag: 'ba-reminder' }),
+    })
+    let shown = []
+    for (let i = 0; i < 20 && !shown.length; i++) {
+      await new Promise((r) => setTimeout(r, 250))
+      shown = await page.evaluate(async () =>
+        (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${n.body}|${n.data?.url}`),
+      )
+    }
+    assert(shown.some((t) => t.startsWith('Tonight: Planning UAT|60 minutes') && t.endsWith('|/session')), `notification not shown: ${shown.join(', ')}`)
   })
 
   await check('manifest is installable (standalone, icons)', async () => {

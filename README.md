@@ -10,7 +10,7 @@ When you open it, it tells you exactly what to do next. Each night it runs a gui
 
 Around the sessions it keeps mastery scores per exam objective, schedules spaced reviews, keeps a mistake notebook, runs mock exams, and tells you honestly whether you're ready.
 
-> **Status:** the core app is complete and tested (372 unit tests and 16 browser end-to-end checks). Three things need accounts or verification that couldn't be done from the build environment; they're listed under [Remaining setup and known limitations](#remaining-setup-and-known-limitations):
+> **Status:** the core app is complete and tested (372 unit tests and 17 browser end-to-end checks). Three things need accounts or verification that couldn't be done from the build environment; they're listed under [Remaining setup and known limitations](#remaining-setup-and-known-limitations):
 > - cloud sync and push reminders need a free Supabase project;
 > - optional AI grading needs an Anthropic API key;
 > - the Salesforce resource links still need a final check.
@@ -76,7 +76,7 @@ npm run preview      # http://localhost:4173
 | Dashboard, topic library, resource library, progress, settings; dark mode | ✅ |
 | Installable PWA with icons, standalone mode and offline support | ✅ verified in Chromium; iPhone install steps below |
 | Calendar-file (.ics) reminder fallback | ✅ works with no server |
-| Web Push reminders scheduled on the server, with follow-up, pause, test notification and cleanup of expired subscriptions | ✅ implemented and type-checked; **needs your Supabase project plus VAPID keys to run** (not delivered end-to-end in testing) |
+| Web Push reminders scheduled on the server, with follow-up, pause, test notification and cleanup of expired subscriptions | ✅ implemented. The scheduler logic is unit-tested and the service worker's push → notification path is verified in Chromium. **Needs your Supabase project plus VAPID keys to run**; real delivery through Apple/Google push services wasn't testable from the build environment |
 | Cloud sync across devices | ✅ implemented; **needs Supabase** |
 | Optional AI grading of written answers | ✅ implemented and type-checked; **needs an Anthropic API key (paid)** |
 | Export, import and deletion of your history | ✅ |
@@ -229,7 +229,7 @@ npm test            # 372 unit tests: content integrity, grading, timers, SRS, m
                     #   planner/calendar, selection/mock freshness, readiness, sync merge,
                     #   reminder scheduling incl. time zones and DST
 npm run build       # production build + service worker
-npm run test:e2e    # 16 browser checks on an iPhone-sized viewport (needs a build first)
+npm run test:e2e    # 17 browser checks on an iPhone-sized viewport (needs a build first)
 npm run check       # typecheck + lint + unit tests + build
 ```
 
@@ -243,6 +243,7 @@ npm run check       # typecheck + lint + unit tests + build
 - every screen rendering;
 - the `.ics` export;
 - offline loading through the service worker;
+- a simulated push message (via Chrome DevTools) producing the reminder notification;
 - the manifest;
 - desktop dark mode;
 - no uncaught errors.
@@ -326,7 +327,7 @@ There are no subscriptions, analytics, trackers or ads.
 
 ## Remaining setup and known limitations
 
-1. **Push reminders are not yet proven on a real device.** Delivery depends on your Supabase project, VAPID keys, and Apple's push service, none of which were reachable from the build environment. The scheduling logic is unit-tested (time zones, DST, follow-ups, pauses), and the functions type-check against the real SDKs. Run **Send test notification** after setup; the app only shows reminders as *Active* once a test succeeds.
+1. **Push reminders are not yet proven on a real device.** Delivery depends on your Supabase project, VAPID keys, and Apple's push service, none of which were reachable from the build environment. The scheduling logic is unit-tested (time zones, DST, follow-ups, pauses), the functions type-check against the real SDKs, and the service worker's push handler is verified in Chromium. A local Supabase stack couldn't be started because container image downloads were blocked. Run **Send test notification** after setup; the app only shows reminders as *Active* once a test succeeds.
 2. **Salesforce links haven't been opened.** Salesforce/Trailhead pages were blocked during the build (see [Exam blueprint and sources](#exam-blueprint-and-sources)). Run `npm run check-links` and spot-check the exam guide yourself. One Trailhead unit slug is spelled `reivew-collaboration-with-stakeholders` in Salesforce's own index; if it ever 404s, the module page link still works.
 3. **The question bank is finite.** It holds 152 curated questions plus 40 lesson checks (and 60 recall prompts). Two half mocks (or one full mock) can be completely fresh; after that, mocks reuse questions, the app shows lower freshness, and readiness relies on fresh-question accuracy. AI question generation was deliberately **not** added, because unreviewed generated questions can't be guaranteed accurate. Adding more curated questions in `src/domain/content/questions/*.ts` is the recommended way to extend.
 4. **Recall auto-grading matches key points, not reasoning.** It accepts many phrasings but can't judge the logic of an answer. Adjust the grade honestly, or enable AI grading.
